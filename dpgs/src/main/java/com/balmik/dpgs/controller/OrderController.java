@@ -6,11 +6,9 @@ import com.balmik.dpgs.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 
 
 @RestController
@@ -24,4 +22,16 @@ public class OrderController {
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request, Authentication authentication){
         return orderService.createOrder(request, authentication.getName());
     }
+
+    @GetMapping("getOrder/{orderId}")
+    public OrderResponse getOrder(@PathVariable String orderId, Authentication authentication){
+        return orderService.getOrderByOrderId(orderId, authentication.getName());
+    }
+
+    @GetMapping("getMyOrders")
+    public List<OrderResponse> getMyOrders(Authentication authentication){
+       return orderService.getMyOrders(authentication.getName());
+    }
+
+
 }
