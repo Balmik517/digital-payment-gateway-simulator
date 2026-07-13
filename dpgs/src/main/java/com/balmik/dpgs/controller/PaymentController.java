@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("api/payments")
 @RequiredArgsConstructor
@@ -30,5 +32,17 @@ public class PaymentController {
     public PaymentResponse markFailed(@PathVariable String paymentId, Authentication authentication) {
 
         return paymentService.markFailed(paymentId, authentication.getName());
+    }
+
+    @GetMapping("getPayment/{paymentId}")
+    public PaymentResponse getPayment(@PathVariable String paymentId, Authentication authentication){
+
+        return paymentService.getPayment(paymentId, authentication.getName());
+    }
+
+    @GetMapping("order/{orderId}")
+    public List<PaymentResponse> getPaymentsByOrder(@PathVariable String orderId, Authentication authentication){
+
+        return paymentService.getPaymentsByOrder(orderId, authentication.getName());
     }
 }

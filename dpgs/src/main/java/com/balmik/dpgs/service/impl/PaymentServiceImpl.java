@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -107,5 +108,52 @@ public class PaymentServiceImpl implements PaymentService {
         return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
                 .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
                 .transactionReference(payment.getTransactionReference()).build();
+    }
+
+    @Override
+    public PaymentResponse getPayment(String paymentId, String email) {
+
+
+        Payment payment = paymentRepository.findByPaymentId(paymentId).orElseThrow(
+                ()-> new RuntimeException("Payment not found"));
+
+        validateOwnership(payment.getOrder(), email);
+
+        return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
+                .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
+                .transactionReference(payment.getTransactionReference()).build();
+    }
+
+    @Override
+    public List<PaymentResponse> getPaymentsByOrder(String orderId, String email) {
+
+        Order order = orderRepository.findByOrderId(orderId).orElseThrow(
+                () -> new RuntimeException("Order not found"));
+
+        validateOwnership(order, email);
+
+        return paymentRepository.findByOrder(order).stream().map(this::mapToResponse).toList();
+    }
+
+
+    private void validateOwnership(Order order, String email){
+        User user = userRepository.findByEmail(email).orElseThrow(
+                () -> new RuntimeException("User not found"));
+
+        if(!order.getUser().getId().equals(user.getId())){
+            throw new RuntimeException("Access denied");
+        }
+    }
+
+    private PaymentResponse mapToResponse(Payment payment) {
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .orderId(payment.getOrder().getOrderId())
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod())
+                .status(payment.getStatus())
+                .transactionReference(payment.getTransactionReference())
+                .build();
     }
 }
