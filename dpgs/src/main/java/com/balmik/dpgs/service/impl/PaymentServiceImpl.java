@@ -2,11 +2,15 @@ package com.balmik.dpgs.service.impl;
 
 import com.balmik.dpgs.dto.request.InitiatePaymentRequest;
 import com.balmik.dpgs.dto.response.PaymentResponse;
+import com.balmik.dpgs.entity.Notification;
 import com.balmik.dpgs.entity.Order;
 import com.balmik.dpgs.entity.Payment;
 import com.balmik.dpgs.entity.User;
+import com.balmik.dpgs.enums.NotificationStatus;
+import com.balmik.dpgs.enums.NotificationType;
 import com.balmik.dpgs.enums.OrderStatus;
 import com.balmik.dpgs.enums.PaymentStatus;
+import com.balmik.dpgs.repository.NotificationRepository;
 import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.PaymentRepository;
 import com.balmik.dpgs.repository.UserRepository;
@@ -25,6 +29,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
 
 
     @Override
@@ -75,6 +80,19 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = payment.getOrder();
         order.setStatus(OrderStatus.PAID);
 
+        Notification notification = Notification.builder().user(order.getUser())
+                .type(NotificationType.EMAIL).status(NotificationStatus.SENT)
+                .subject("Payment Successful")
+                .message("Your payment "
+                +payment.getPaymentId()+
+                        " for order "+
+                        order.getOrderId()+
+                        " was completed successfully.")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        notificationRepository.save(notification);
+        System.out.println("EMAIL SENT -> " + notification.getMessage());
         paymentRepository.save(payment);
         orderRepository.save(order);
 
