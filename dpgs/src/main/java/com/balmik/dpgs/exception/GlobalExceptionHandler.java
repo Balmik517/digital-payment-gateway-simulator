@@ -43,13 +43,4 @@ public class GlobalExceptionHandler {
                         "message", ex.getMessage()
                 ));
     }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleException(Exception ex) {
-
-        log.error("Unhandled exception occurred", ex);
-
-        return ResponseEntity.internalServerError()
-                .body(Map.of("success", false, "message", ex.getMessage()));
-    }
 }
