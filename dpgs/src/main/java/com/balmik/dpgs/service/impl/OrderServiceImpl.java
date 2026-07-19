@@ -9,6 +9,7 @@ import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
@@ -27,6 +29,8 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse createOrder(
             CreateOrderRequest request,
             String email) {
+
+        log.info("Order creation initiated by user={}", email);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -43,6 +47,8 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.save(order);
 
+        log.info("Order created successfully. OrderId={}, User={}", order.getOrderId(), email);
+
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .amount(order.getAmount())
@@ -53,6 +59,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse getOrderByOrderId(String orderId, String email) {
+
+        log.debug("Fetching order. OrderId={}, User={}", orderId, email);
 
         User user = userRepository.findByEmail(email).orElseThrow(()
                 -> new UsernameNotFoundException("user not found"));

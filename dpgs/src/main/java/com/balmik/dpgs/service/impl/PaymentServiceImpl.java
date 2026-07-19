@@ -17,12 +17,14 @@ import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.service.PaymentService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
@@ -35,6 +37,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse initiatePayment(InitiatePaymentRequest request, String email) {
+
+        log.info("Payment initiation started. OrderId={}, User={}", request.getOrderId(), email);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -54,6 +58,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .transactionReference("TNX-"+System.currentTimeMillis()).createdAt(LocalDateTime.now()).build();
 
         paymentRepository.save(payment);
+
+        log.info("Payment initiated successfully. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
         orderRepository.save(order);
         return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId()).amount(order.getAmount())
                 .paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
@@ -63,6 +69,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse markSuccess(String paymentId, String email) {
+
+        log.info("Processing payment success. PaymentId={}", paymentId);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -92,9 +100,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         notificationRepository.save(notification);
-        System.out.println("EMAIL SENT -> " + notification.getMessage());
+        log.info("Notification created. User={}, Type={}, Subject={}", order.getUser().getEmail(), notification.getType(),
+                notification.getSubject());
         paymentRepository.save(payment);
         orderRepository.save(order);
+
+        log.info("Payment marked SUCCESS. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
         return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
                 .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
@@ -104,6 +115,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse markFailed(String paymentId, String email) {
+
+        log.info("Processing payment fail. PaymentId={}", paymentId);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -122,6 +135,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         paymentRepository.save(payment);
         orderRepository.save(order);
+
+        log.warn("Payment marked FAILED. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
         return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
                 .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())

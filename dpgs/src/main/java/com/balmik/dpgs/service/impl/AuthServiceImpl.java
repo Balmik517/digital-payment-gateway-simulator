@@ -11,12 +11,14 @@ import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.security.JwtUtil;
 import com.balmik.dpgs.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
@@ -26,7 +28,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void register(RegisterRequest request) {
+
+        log.info("User registration request received. Email={}", request.getEmail());
+
         if(userRepository.existsByEmail(request.getEmail())){
+            log.warn("Registration failed. Email already exists. Email={}", request.getEmail());
             throw new EmailAlreadyExistsException("Email already exists");
         }
 
@@ -39,19 +45,22 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         userRepository.save(user);
-
+        log.info("User registered successfully. Email={}", user.getEmail());
     }
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        log.info("Login request received. Email={}", request.getEmail());
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid Credentials"));
 
         if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
+            log.warn("Invalid login attempt. Email={}", request.getEmail());
             throw new InvalidCredentialsException("Invalid Credentials");
         }
 
         String token = jwtUtil.generateToken(user.getEmail());
+        log.info("Login successful. Email={}", request.getEmail());
         return new AuthResponse(token, "Bearer");
     }
 }
