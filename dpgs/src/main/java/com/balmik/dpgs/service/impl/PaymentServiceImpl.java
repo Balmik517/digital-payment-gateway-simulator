@@ -6,15 +6,13 @@ import com.balmik.dpgs.entity.Notification;
 import com.balmik.dpgs.entity.Order;
 import com.balmik.dpgs.entity.Payment;
 import com.balmik.dpgs.entity.User;
-import com.balmik.dpgs.enums.NotificationStatus;
-import com.balmik.dpgs.enums.NotificationType;
-import com.balmik.dpgs.enums.OrderStatus;
-import com.balmik.dpgs.enums.PaymentStatus;
+import com.balmik.dpgs.enums.*;
 import com.balmik.dpgs.exception.*;
 import com.balmik.dpgs.repository.NotificationRepository;
 import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.PaymentRepository;
 import com.balmik.dpgs.repository.UserRepository;
+import com.balmik.dpgs.service.AuditService;
 import com.balmik.dpgs.service.PaymentService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +31,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+
+    private final AuditService auditService;
 
 
     @Override
@@ -68,11 +68,15 @@ public class PaymentServiceImpl implements PaymentService {
         orderRepository.save(order);
         paymentRepository.save(payment);
 
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_CREATED,
+                "Payment initiated using " + payment.getPaymentMethod(), email);
+
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_PENDING,
+                "Payment is waiting for gateway response", "SYSTEM");
+
         log.info("Payment initiated successfully. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
-        return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId()).amount(order.getAmount())
-                .paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
-                .transactionReference(payment.getTransactionReference()).build();
+        return mapToResponse(payment);
     }
 
     @Override
@@ -109,20 +113,24 @@ public class PaymentServiceImpl implements PaymentService {
                         " was completed successfully.")
                 .createdAt(LocalDateTime.now())
                 .build();
-
+        paymentRepository.save(payment);
+        orderRepository.save(order);
         notificationRepository.save(notification);
+
+        auditService.saveAudit(payment, AuditEvent.NOTIFICATION_SENT,
+                "Payment success notification generated", "SYSTEM");
+
         log.info("Notification created. User={}, Type={}, Subject={}", order.getUser().getEmail(), notification.getType(),
                 notification.getSubject());
 
-        orderRepository.save(order);
-        paymentRepository.save(payment);
-
+        
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_SUCCESS,
+                String.format("Payment %s for Order %s completed successfully", payment.getPaymentId(),
+                        payment.getOrder().getOrderId()), email);
 
         log.info("Payment marked SUCCESS. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
-        return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
-                .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
-                .transactionReference(payment.getTransactionReference()).build();
+        return mapToResponse(payment);
     }
 
     @Override
@@ -151,12 +159,14 @@ public class PaymentServiceImpl implements PaymentService {
         orderRepository.save(order);
         paymentRepository.save(payment);
 
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_FAILED,
+                String.format("Payment %s failed for Order %s",
+                        payment.getPaymentId(),
+                        order.getOrderId()), email);
 
         log.warn("Payment marked FAILED. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
-        return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
-                .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
-                .transactionReference(payment.getTransactionReference()).build();
+        return mapToResponse(payment);
     }
 
     @Override
@@ -168,9 +178,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         validateOwnership(payment.getOrder(), email);
 
-        return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId())
-                .amount(payment.getAmount()).paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
-                .transactionReference(payment.getTransactionReference()).build();
+        return mapToResponse(payment);
     }
 
     @Override

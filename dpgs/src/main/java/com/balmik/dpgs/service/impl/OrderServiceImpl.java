@@ -28,9 +28,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
 
     @Override
-    public OrderResponse createOrder(
-            CreateOrderRequest request,
-            String email) {
+    public OrderResponse createOrder(CreateOrderRequest request, String email) {
 
         log.info("Order creation initiated by user={}", email);
 
