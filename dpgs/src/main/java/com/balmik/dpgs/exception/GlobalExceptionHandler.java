@@ -43,4 +43,53 @@ public class GlobalExceptionHandler {
                         "message", ex.getMessage()
                 ));
     }
+
+
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ResponseEntity<?> handleOrderNotFound(OrderNotFoundException ex){
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of("success", false,
+                       "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(PaymentNotFoundException.class)
+    public ResponseEntity<?> handlePaymentNotFound(PaymentNotFoundException ex){
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(PaymentAlreadyExistsException.class)
+    public ResponseEntity<?> handlePaymentAlreadyExists(PaymentAlreadyExistsException ex){
+
+        return ResponseEntity.badRequest().body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(PaymentAlreadyProcessedException.class)
+    public ResponseEntity<?> handlePaymentAlreadyProcessed(PaymentAlreadyProcessedException ex){
+
+        return ResponseEntity.badRequest().body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceAccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDenied(ResourceAccessDeniedException ex){
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<?> handleUserNotFound(UserNotFoundException ex){
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
 }

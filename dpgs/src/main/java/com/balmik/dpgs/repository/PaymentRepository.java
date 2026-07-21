@@ -2,6 +2,7 @@ package com.balmik.dpgs.repository;
 
 import com.balmik.dpgs.entity.Order;
 import com.balmik.dpgs.entity.Payment;
+import com.balmik.dpgs.enums.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +16,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByPaymentId(String paymentId);
 
     List<Payment> findByOrder(Order order);
+
+    Optional<Payment> findByOrderAndStatus(Order order, PaymentStatus status);
 }

@@ -10,6 +10,7 @@ import com.balmik.dpgs.enums.NotificationStatus;
 import com.balmik.dpgs.enums.NotificationType;
 import com.balmik.dpgs.enums.OrderStatus;
 import com.balmik.dpgs.enums.PaymentStatus;
+import com.balmik.dpgs.exception.*;
 import com.balmik.dpgs.repository.NotificationRepository;
 import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.PaymentRepository;
@@ -40,16 +41,23 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Payment initiation started. OrderId={}, User={}", request.getOrderId(), email);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        User user = getCurrentUser(email);
 
         Order order = orderRepository.findByOrderId(request.getOrderId()).orElseThrow(
-                () -> new RuntimeException("Order not found"));
+                () -> new OrderNotFoundException("Order not found"));
+
+        if(order.getStatus() == OrderStatus.PAID){
+            throw new PaymentAlreadyProcessedException("Order already paid");
+        }
 
         if (!order.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot pay for another user's order");
+            log.warn("Unauthorized payment attempt. User={}, Order={}", email, order.getOrderId());
+
+            throw new ResourceAccessDeniedException("You cannot pay for another user's order");
         }
+
+        paymentRepository.findByOrderAndStatus(order, PaymentStatus.PENDING).ifPresent(payment -> {
+            throw new PaymentAlreadyExistsException("Payment already in progress");});
 
         order.setStatus(OrderStatus.PAYMENT_PENDING);
 
@@ -57,10 +65,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentMethod(request.getPaymentMethod()).status(PaymentStatus.PENDING)
                 .transactionReference("TNX-"+System.currentTimeMillis()).createdAt(LocalDateTime.now()).build();
 
+        orderRepository.save(order);
         paymentRepository.save(payment);
 
         log.info("Payment initiated successfully. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
-        orderRepository.save(order);
+
         return PaymentResponse.builder().paymentId(payment.getPaymentId()).orderId(payment.getOrder().getOrderId()).amount(order.getAmount())
                 .paymentMethod(payment.getPaymentMethod()).status(payment.getStatus())
                 .transactionReference(payment.getTransactionReference()).build();
@@ -72,15 +81,17 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Processing payment success. PaymentId={}", paymentId);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        User user = getCurrentUser(email);
 
         Payment payment = paymentRepository.findByPaymentId(paymentId).orElseThrow(
-                () -> new RuntimeException("Payment not found"));
+                () -> new PaymentNotFoundException("Payment not found"));
 
         if (!payment.getOrder().getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot pay for another user's order");
+            throw new ResourceAccessDeniedException("You cannot pay for another user's order");
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new PaymentAlreadyProcessedException("Payment has already been processed");
         }
 
         payment.setStatus(PaymentStatus.SUCCESS);
@@ -102,8 +113,10 @@ public class PaymentServiceImpl implements PaymentService {
         notificationRepository.save(notification);
         log.info("Notification created. User={}, Type={}, Subject={}", order.getUser().getEmail(), notification.getType(),
                 notification.getSubject());
-        paymentRepository.save(payment);
+
         orderRepository.save(order);
+        paymentRepository.save(payment);
+
 
         log.info("Payment marked SUCCESS. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
@@ -118,23 +131,26 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Processing payment fail. PaymentId={}", paymentId);
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        User user = getCurrentUser(email);
 
         Payment payment = paymentRepository.findByPaymentId(paymentId).orElseThrow(
-                () -> new RuntimeException("Payment not found"));
+                () -> new PaymentNotFoundException("Payment not found"));
 
         if (!payment.getOrder().getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot pay for another user's order");
+            throw new ResourceAccessDeniedException("You cannot pay for another user's order");
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new PaymentAlreadyProcessedException("Payment has already been processed");
         }
 
         payment.setStatus(PaymentStatus.FAILED);
         Order order = payment.getOrder();
         order.setStatus(OrderStatus.FAILED);
 
-        paymentRepository.save(payment);
         orderRepository.save(order);
+        paymentRepository.save(payment);
+
 
         log.warn("Payment marked FAILED. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
 
@@ -148,7 +164,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         Payment payment = paymentRepository.findByPaymentId(paymentId).orElseThrow(
-                ()-> new RuntimeException("Payment not found"));
+                ()-> new PaymentNotFoundException("Payment not found"));
 
         validateOwnership(payment.getOrder(), email);
 
@@ -161,20 +177,24 @@ public class PaymentServiceImpl implements PaymentService {
     public List<PaymentResponse> getPaymentsByOrder(String orderId, String email) {
 
         Order order = orderRepository.findByOrderId(orderId).orElseThrow(
-                () -> new RuntimeException("Order not found"));
+                () -> new OrderNotFoundException("Order not found"));
 
         validateOwnership(order, email);
 
         return paymentRepository.findByOrder(order).stream().map(this::mapToResponse).toList();
     }
 
+    private User getCurrentUser(String email){
+        return userRepository.findByEmail(email).orElseThrow(
+                () -> new UserNotFoundException("User not found"));
+    }
+
 
     private void validateOwnership(Order order, String email){
-        User user = userRepository.findByEmail(email).orElseThrow(
-                () -> new RuntimeException("User not found"));
+        User user = getCurrentUser(email);
 
         if(!order.getUser().getId().equals(user.getId())){
-            throw new RuntimeException("Access denied");
+            throw new ResourceAccessDeniedException("Access denied");
         }
     }
 
