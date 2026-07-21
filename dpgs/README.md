@@ -1,51 +1,133 @@
 # Digital Payment Gateway Simulator
 
-A backend application built using Java, Spring Boot, Spring Security, JWT, PostgreSQL, and Maven that simulates a digital payment gateway with secure authentication, order management, and payment lifecycle processing.
+A production-inspired backend application built using **Java 21**, **Spring Boot 3.5.x**, **Spring Security**, **JWT Authentication**, and **PostgreSQL** that simulates a real-world Digital Payment Gateway.
 
-## Tech Stack
+The project follows enterprise backend development practices including secure authentication, authorization, order management, payment processing, notifications, audit logging, request logging, exception handling, and Git feature-based development.
+
+---
+
+# 🚀 Tech Stack
 
 - Java 21
 - Spring Boot 3.5.x
 - Spring Security
 - JWT Authentication
-- Spring Data JPA
+- Spring Data JPA (Hibernate)
 - PostgreSQL
 - Maven
 - Lombok
+- SLF4J + Logback
 - Git & GitHub
 
 ---
 
-## Features
+# ✨ Features
 
-### Authentication
+## 🔐 Authentication
 
 - User Registration
 - User Login
 - BCrypt Password Encryption
 - JWT Token Generation
 - JWT Authentication Filter
-- Protected APIs
 - Stateless Authentication
-
-### Order Management
-
-- Create Order
-- Get Order By Order ID
-- Get Logged-In User Orders
-- Order Ownership Validation
-- Order Status Management
-
-### Security
-
-- Spring Security Filter Chain
-- JWT Bearer Token Authentication
-- Role-Based Foundation
-- Global Exception Handling
+- Protected APIs
 
 ---
 
-## Project Structure
+## 📦 Order Management
+
+- Create Order
+- Get Order By Order ID
+- Get Logged-in User Orders
+- Order Ownership Validation
+- Order Status Tracking
+
+### Order Lifecycle
+
+```text
+CREATED
+    │
+    ▼
+PAYMENT_PENDING
+   ├──────────────► PAID
+   │
+   └──────────────► FAILED
+```
+
+---
+
+## 💳 Payment Management
+
+### Payment APIs
+
+- Initiate Payment
+- Mark Payment Success
+- Mark Payment Failed
+- Get Payment Details
+- Get Payments By Order
+
+### Payment Validations
+
+- Duplicate Payment Prevention
+- Payment Ownership Validation
+- Payment State Validation
+- Prevent Re-processing of Completed Payments
+
+---
+
+## 🔔 Notification Module
+
+- Notification Entity
+- Notification Service
+- Notification Repository
+- Get Logged-in User Notifications
+- Automatic Notification Creation on Successful Payment
+
+---
+
+## 📋 Audit Module
+
+Tracks every important business event.
+
+### Implemented Audit Events
+
+- PAYMENT_CREATED
+- PAYMENT_PENDING
+- PAYMENT_SUCCESS
+- PAYMENT_FAILED
+- NOTIFICATION_SENT
+
+---
+
+## 📝 Logging
+
+Application-wide logging using **SLF4J + Logback**.
+
+### Logging Implemented
+
+- Authentication Logs
+- Order Logs
+- Payment Logs
+- Notification Logs
+- Request Logs
+- Error Logs
+- Unauthorized Access Logs
+
+---
+
+## 🛡 Security
+
+- Spring Security Filter Chain
+- JWT Authentication
+- Resource Ownership Validation
+- Stateless Authentication
+- Global Exception Handling
+- Custom Exceptions
+
+---
+
+# 📂 Project Structure
 
 ```text
 src/main/java/com/balmik/dpgs
@@ -58,6 +140,7 @@ src/main/java/com/balmik/dpgs
 ├── entity
 ├── enums
 ├── exception
+├── filter
 ├── repository
 ├── security
 ├── service
@@ -67,7 +150,9 @@ src/main/java/com/balmik/dpgs
 
 ---
 
-## Authentication APIs
+# 📚 REST APIs
+
+## Authentication
 
 ### Register User
 
@@ -106,14 +191,13 @@ Response
 
 ```json
 {
-  "accessToken": "jwt-token",
-  "tokenType": "Bearer"
+  "token": "JWT_TOKEN"
 }
 ```
 
 ---
 
-## Order APIs
+## Orders
 
 ### Create Order
 
@@ -136,29 +220,12 @@ Request
 }
 ```
 
-Response
-
-```json
-{
-  "orderId": "ORD-1751812345678",
-  "amount": 5000,
-  "description": "Laptop Purchase",
-  "status": "CREATED"
-}
-```
-
 ---
 
-### Get Order By Order ID
+### Get Order By ID
 
 ```http
 GET /api/orders/{orderId}
-```
-
-Headers
-
-```http
-Authorization: Bearer <JWT_TOKEN>
 ```
 
 ---
@@ -169,63 +236,218 @@ Authorization: Bearer <JWT_TOKEN>
 GET /api/orders/my-orders
 ```
 
-Headers
+---
+
+## Payments
+
+### Initiate Payment
 
 ```http
-Authorization: Bearer <JWT_TOKEN>
+POST /api/payments/initiatePayment
+```
+
+Request
+
+```json
+{
+  "orderId": "ORD-1783358727708",
+  "paymentMethod": "UPI"
+}
 ```
 
 ---
 
-## Order Lifecycle
+### Mark Payment Success
 
-```text
-CREATED
-    |
-PAYMENT_PENDING
-    |
-PAID
-```
-
-or
-
-```text
-CREATED
-    |
-PAYMENT_PENDING
-    |
-FAILED
+```http
+POST /api/payments/{paymentId}/success
 ```
 
 ---
 
-## Database
+### Mark Payment Failed
+
+```http
+POST /api/payments/{paymentId}/fail
+```
+
+---
+
+### Get Payment
+
+```http
+GET /api/payments/getPayment/{paymentId}
+```
+
+---
+
+### Get Payments By Order
+
+```http
+GET /api/payments/order/{orderId}
+```
+
+---
+
+## Notifications
+
+### Get Logged-in User Notifications
+
+```http
+GET /api/notifications/my-notifications
+```
+
+---
+
+# 🏗 Current Architecture
+
+```text
+                     Client
+                        │
+                        ▼
+                 JWT Authentication
+                        │
+                        ▼
+                 Spring Security
+                        │
+                        ▼
+                  REST Controllers
+                        │
+                        ▼
+                 Service Layer
+      ┌─────────────┼─────────────┐
+      │             │             │
+      ▼             ▼             ▼
+ Order Service  Payment Service  Notification Service
+                      │
+                      ▼
+                 Audit Service
+                      │
+                      ▼
+               Repository Layer
+                      │
+                      ▼
+                  PostgreSQL
+```
+
+---
+
+# 🔄 Payment Flow
+
+```text
+Client
+   │
+   ▼
+Create Order
+   │
+   ▼
+Order Created
+   │
+   ▼
+Initiate Payment
+   │
+   ▼
+Payment Pending
+   │
+   ├──────────────► Payment Success
+   │                    │
+   │                    ▼
+   │              Order Paid
+   │                    │
+   │                    ▼
+   │          Notification Created
+   │                    │
+   │                    ▼
+   │            Audit Record Saved
+   │
+   └──────────────► Payment Failed
+                        │
+                        ▼
+                  Order Failed
+                        │
+                        ▼
+                 Audit Record Saved
+```
+
+---
+
+# 🔐 Security Flow
+
+```text
+Client
+
+   │
+   ▼
+
+Login
+
+   │
+   ▼
+
+JWT Token
+
+   │
+   ▼
+
+Authorization Header
+
+Bearer <JWT>
+
+   │
+   ▼
+
+JWT Authentication Filter
+
+   │
+   ▼
+
+Spring Security
+
+   │
+   ▼
+
+Controller
+
+   │
+   ▼
+
+Service
+
+   │
+   ▼
+
+Database
+```
+
+---
+
+# 🗄 Database
 
 PostgreSQL
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/dpgs
 spring.datasource.username=postgres
-spring.datasource.password=******
+spring.datasource.password=********
 ```
 
 ---
 
-## Run Locally
+# ▶ Running the Project
 
-Clone repository
+Clone the repository
 
 ```bash
 git clone https://github.com/Balmik517/digital-payment-gateway-simulator.git
 ```
 
-Move to project
+Move to the project directory
 
 ```bash
 cd digital-payment-gateway-simulator
 ```
 
-Run application
+Run the application
 
 ```bash
 mvn spring-boot:run
@@ -239,40 +461,103 @@ http://localhost:8080
 
 ---
 
-## Upcoming Features
+# 📌 Implemented Modules
 
-- Payment Service
-- UPI Payment Simulation
-- Card Payment Simulation
-- Payment Status Tracking
-- Notification Service
-- Kafka Integration
-- Dockerization
-- AWS Deployment
-- GitHub Actions CI/CD
-- Microservices Architecture
+- ✅ Authentication
+- ✅ JWT Security
+- ✅ Order Management
+- ✅ Payment Management
+- ✅ Notification Service
+- ✅ Audit Service
+- ✅ Request Logging
+- ✅ Exception Handling
+- ✅ Ownership Validation
 
 ---
 
-## Learning Objectives
+# 🛣 Roadmap
+
+## Phase 1 ✅
+
+- JWT Authentication
+- Order Service
+- Payment Service
+- Notification Service
+- Audit Trail
+- Logging
+
+---
+
+## Phase 2
+
+- Email Service (Mock)
+- Payment Retry
+- Refund APIs
+- Admin APIs
+- Validation Improvements
+
+---
+
+## Phase 3
+
+- Kafka Integration
+- Event-Driven Architecture
+- Async Notification Processing
+
+---
+
+## Phase 4
+
+- Docker
+- Docker Compose
+- Redis Cache
+
+---
+
+## Phase 5
+
+- Microservices
+- API Gateway
+- Config Server
+- Service Discovery
+
+---
+
+## Phase 6
+
+- GitHub Actions CI/CD
+- Kubernetes
+- AWS Deployment
+- Monitoring
+- Distributed Tracing
+
+---
+
+# 🎯 Learning Objectives
 
 This project demonstrates:
 
-- Spring Boot Development
-- REST API Design
-- JWT Authentication
+- Enterprise Java Development
+- Spring Boot
 - Spring Security
+- JWT Authentication
+- REST API Design
+- Layered Architecture
 - JPA & Hibernate
 - PostgreSQL Integration
 - Exception Handling
-- Git Branching Strategy
-- CI/CD Readiness
-- Cloud Deployment Preparation
+- Audit Logging
+- Request Logging
+- Secure API Design
+- Git Feature Branch Workflow
+- Production-ready Backend Development
 
 ---
 
-## Author
+# 👨‍💻 Author
 
 **Balmik Prajapati**
+
+Senior Software Engineer
 
 Java Backend Developer | Spring Boot | Microservices | AWS
