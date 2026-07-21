@@ -5,6 +5,8 @@ import com.balmik.dpgs.dto.response.OrderResponse;
 import com.balmik.dpgs.entity.Order;
 import com.balmik.dpgs.entity.User;
 import com.balmik.dpgs.enums.OrderStatus;
+import com.balmik.dpgs.exception.OrderNotFoundException;
+import com.balmik.dpgs.exception.ResourceAccessDeniedException;
 import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.service.OrderService;
@@ -66,10 +68,10 @@ public class OrderServiceImpl implements OrderService {
                 -> new UsernameNotFoundException("user not found"));
 
         Order order = orderRepository.findByOrderId(orderId).orElseThrow(()
-                -> new RuntimeException("Order not found with that order id."));
+                -> new OrderNotFoundException("Order not found with that order id."));
 
         if(!order.getUser().getId().equals(user.getId())){
-            throw new RuntimeException("Access denied.");
+            throw new ResourceAccessDeniedException("Access denied.");
         }
 
         return OrderResponse.builder()
