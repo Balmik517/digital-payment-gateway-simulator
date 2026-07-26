@@ -13,6 +13,7 @@ import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.PaymentRepository;
 import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.service.AuditService;
+import com.balmik.dpgs.service.IdempotencyService;
 import com.balmik.dpgs.service.PaymentService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -34,12 +35,24 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final AuditService auditService;
 
+    private final IdempotencyService idempotencyService;
+
 
     @Override
     @Transactional
-    public PaymentResponse initiatePayment(InitiatePaymentRequest request, String email) {
+    public PaymentResponse initiatePayment(InitiatePaymentRequest request, String email, String idempotencyKey) {
 
         log.info("Payment initiation started. OrderId={}, User={}", request.getOrderId(), email);
+
+        var existingRecord = idempotencyService.findByKey(idempotencyKey);
+
+        if(existingRecord.isPresent()){
+            log.info("Duplicate payment request detected. IdempotencyKey={}", idempotencyKey);
+
+            Payment existingPayment = paymentRepository.findByPaymentId(existingRecord.get().getPaymentId())
+                    .orElseThrow(() -> new PaymentNotFoundException("Stored payment not found."));
+            return mapToResponse(existingPayment);
+        }
 
         User user = getCurrentUser(email);
 
@@ -67,6 +80,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         orderRepository.save(order);
         paymentRepository.save(payment);
+
+        idempotencyService.save(idempotencyKey, payment.getPaymentId());
 
         auditService.saveAudit(payment, AuditEvent.PAYMENT_CREATED,
                 "Payment initiated using " + payment.getPaymentMethod(), email);
