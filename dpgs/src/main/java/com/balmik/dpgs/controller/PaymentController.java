@@ -18,8 +18,9 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("initiatePayment")
-    public PaymentResponse initiatePayment(@RequestBody @Valid InitiatePaymentRequest request, Authentication authentication){
-     return paymentService.initiatePayment(request, authentication.getName());
+    public PaymentResponse initiatePayment(@RequestHeader("Idempotency-Key") String idempotencyKey,
+            @RequestBody @Valid InitiatePaymentRequest request, Authentication authentication){
+     return paymentService.initiatePayment(request, authentication.getName(), idempotencyKey);
     }
 
     @PostMapping("/{paymentId}/success")

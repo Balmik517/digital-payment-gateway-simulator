@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PaymentService {
 
-    PaymentResponse initiatePayment(InitiatePaymentRequest request, String email);
+    PaymentResponse initiatePayment(InitiatePaymentRequest request, String email, String idempotencyKey);
 
     PaymentResponse markSuccess(String paymentId, String email);
 
