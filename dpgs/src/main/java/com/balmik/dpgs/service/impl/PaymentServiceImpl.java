@@ -113,37 +113,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentAlreadyProcessedException("Payment has already been processed");
         }
 
-        payment.setStatus(PaymentStatus.SUCCESS);
-
-        Order order = payment.getOrder();
-        order.setStatus(OrderStatus.PAID);
-
-        Notification notification = Notification.builder().user(order.getUser())
-                .type(NotificationType.EMAIL).status(NotificationStatus.SENT)
-                .subject("Payment Successful")
-                .message("Your payment "
-                +payment.getPaymentId()+
-                        " for order "+
-                        order.getOrderId()+
-                        " was completed successfully.")
-                .createdAt(LocalDateTime.now())
-                .build();
-        paymentRepository.save(payment);
-        orderRepository.save(order);
-        notificationRepository.save(notification);
-
-        auditService.saveAudit(payment, AuditEvent.NOTIFICATION_SENT,
-                "Payment success notification generated", "SYSTEM");
-
-        log.info("Notification created. User={}, Type={}, Subject={}", order.getUser().getEmail(), notification.getType(),
-                notification.getSubject());
-
-        
-        auditService.saveAudit(payment, AuditEvent.PAYMENT_SUCCESS,
-                String.format("Payment %s for Order %s completed successfully", payment.getPaymentId(),
-                        payment.getOrder().getOrderId()), email);
-
-        log.info("Payment marked SUCCESS. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
+        completePaymentSuccess(payment, email);
 
         return mapToResponse(payment);
     }
@@ -167,19 +137,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentAlreadyProcessedException("Payment has already been processed");
         }
 
-        payment.setStatus(PaymentStatus.FAILED);
-        Order order = payment.getOrder();
-        order.setStatus(OrderStatus.FAILED);
-
-        orderRepository.save(order);
-        paymentRepository.save(payment);
-
-        auditService.saveAudit(payment, AuditEvent.PAYMENT_FAILED,
-                String.format("Payment %s failed for Order %s",
-                        payment.getPaymentId(),
-                        order.getOrderId()), email);
-
-        log.warn("Payment marked FAILED. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
+        completePaymentFailure(payment, email);
 
         return mapToResponse(payment);
     }
@@ -207,6 +165,44 @@ public class PaymentServiceImpl implements PaymentService {
         return paymentRepository.findByOrder(order).stream().map(this::mapToResponse).toList();
     }
 
+    @Override
+    @Transactional
+    public void processWebhookSuccess(String paymentId) {
+        log.info("Webhook SUCCESS received. PaymentId={}", paymentId);
+
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                        .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+
+            log.warn("Ignoring duplicate webhook. PaymentId={}, Status={}", paymentId, payment.getStatus());
+
+            return;
+        }
+
+        completePaymentSuccess(payment, "PAYMENT_GATEWAY");
+
+    }
+
+    @Override
+    @Transactional
+    public void processWebhookFailed(String paymentId) {
+        log.info("Webhook FAILED received. PaymentId={}", paymentId);
+
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                        .orElseThrow(() -> new PaymentNotFoundException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+
+            log.warn("Ignoring duplicate webhook. PaymentId={}, Status={}", paymentId, payment.getStatus());
+
+            return;
+        }
+
+        completePaymentFailure(payment, "PAYMENT_GATEWAY");
+
+    }
+
     private User getCurrentUser(String email){
         return userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found"));
@@ -231,5 +227,62 @@ public class PaymentServiceImpl implements PaymentService {
                 .status(payment.getStatus())
                 .transactionReference(payment.getTransactionReference())
                 .build();
+    }
+
+
+    private void completePaymentSuccess(Payment payment, String actor){
+
+        payment.setStatus(PaymentStatus.SUCCESS);
+
+        Order order = payment.getOrder();
+        order.setStatus(OrderStatus.PAID);
+
+        Notification notification = Notification.builder()
+                .user(order.getUser())
+                .type(NotificationType.EMAIL)
+                .status(NotificationStatus.SENT)
+                .subject("Payment Successful")
+                .message("Your payment "
+                        + payment.getPaymentId()
+                        + " for order "
+                        + order.getOrderId()
+                        + " was completed successfully.")
+                .createdAt(LocalDateTime.now()).
+                build();
+
+        paymentRepository.save(payment);
+        orderRepository.save(order);
+        notificationRepository.save(notification);
+
+        auditService.saveAudit(payment, AuditEvent.NOTIFICATION_SENT,
+                "Payment success notification generated", "SYSTEM");
+
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_SUCCESS,
+                String.format(
+                        "Payment %s for Order %s completed successfully",
+                        payment.getPaymentId(),
+                        order.getOrderId()), actor);
+
+        log.info("Payment marked SUCCESS. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
+    }
+
+
+    private void completePaymentFailure(Payment payment, String actor){
+
+        payment.setStatus(PaymentStatus.FAILED);
+
+        Order order = payment.getOrder();
+        order.setStatus(OrderStatus.FAILED);
+
+        paymentRepository.save(payment);
+        orderRepository.save(order);
+
+        auditService.saveAudit(payment, AuditEvent.PAYMENT_FAILED,
+                String.format(
+                        "Payment %s failed for Order %s",
+                        payment.getPaymentId(),
+                        order.getOrderId()), actor);
+
+        log.warn("Payment marked FAILED. PaymentId={}, OrderId={}", payment.getPaymentId(), order.getOrderId());
     }
 }

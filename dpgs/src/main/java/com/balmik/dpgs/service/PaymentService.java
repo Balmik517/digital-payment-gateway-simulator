@@ -16,4 +16,8 @@ public interface PaymentService {
     PaymentResponse getPayment(String paymentId, String email);
 
     List<PaymentResponse> getPaymentsByOrder(String orderId, String email);
+
+    void processWebhookSuccess(String paymentId);
+
+    void processWebhookFailed(String paymentId);
 }
