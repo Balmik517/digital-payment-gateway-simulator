@@ -20,4 +20,6 @@ public interface PaymentService {
     void processWebhookSuccess(String paymentId);
 
     void processWebhookFailed(String paymentId);
+
+    void expirePendingPayments();
 }
