@@ -18,6 +18,7 @@ The project follows enterprise backend development practices including secure au
 - Lombok
 - SLF4J + Logback
 - Git & GitHub
+- Spring Scheduler
 
 ---
 
@@ -74,7 +75,47 @@ PAYMENT_PENDING
 - Payment State Validation
 - Prevent Re-processing of Completed Payments
 
+### Payment Features
+
+- Initiate Payment
+- Payment Idempotency
+- Payment Ownership Validation
+- Payment State Validation
+- Payment Expiration Scheduler
+- Webhook Payment Processing
+- Audit Tracking
+
 ---
+
+## ⏰ Scheduled Jobs
+
+Implemented automatic payment expiration using Spring Scheduler.
+
+### Current Job
+
+- Expires pending payments after configured timeout
+- Updates Order Status
+- Updates Payment Status
+- Creates Audit Entry
+
+## 🔄 Webhook Simulation
+
+Simulates payment gateway callbacks similar to Razorpay, Stripe or Cashfree.
+
+### APIs
+
+POST /api/webhooks/payment-success
+
+POST /api/webhooks/payment-failed
+
+### Features
+
+- Processes asynchronous payment callbacks
+- Updates Payment Status
+- Updates Order Status
+- Generates Notifications
+- Creates Audit Records
+- Prevents duplicate processing
 
 ## 🔔 Notification Module
 
@@ -96,6 +137,7 @@ Tracks every important business event.
 - PAYMENT_PENDING
 - PAYMENT_SUCCESS
 - PAYMENT_FAILED
+- PAYMENT_EXPIRED
 - NOTIFICATION_SENT
 
 ---
@@ -110,6 +152,8 @@ Application-wide logging using **SLF4J + Logback**.
 - Order Logs
 - Payment Logs
 - Notification Logs
+- Webhook Logs
+- Scheduler Logs
 - Request Logs
 - Error Logs
 - Unauthorized Access Logs
@@ -297,12 +341,13 @@ GET /api/payments/order/{orderId}
 GET /api/notifications/my-notifications
 ```
 
+
 ---
 
 # 🏗 Current Architecture
 
 ```text
-                     Client
+                      Client
                         │
                         ▼
                  JWT Authentication
@@ -313,21 +358,24 @@ GET /api/notifications/my-notifications
                         ▼
                   REST Controllers
                         │
+        ┌───────────────┼────────────────┐
+        │               │                │
+        ▼               ▼                ▼
+ Order Service   Payment Service   Notification Service
+                        │
+            ┌───────────┴───────────┐
+            ▼                       ▼
+      Webhook Service        Scheduler
+            │                       │
+            └───────────┬───────────┘
                         ▼
-                 Service Layer
-      ┌─────────────┼─────────────┐
-      │             │             │
-      ▼             ▼             ▼
- Order Service  Payment Service  Notification Service
-                      │
-                      ▼
-                 Audit Service
-                      │
-                      ▼
-               Repository Layer
-                      │
-                      ▼
-                  PostgreSQL
+                  Audit Service
+                        │
+                        ▼
+                  Repository Layer
+                        │
+                        ▼
+                    PostgreSQL
 ```
 
 ---
@@ -336,87 +384,48 @@ GET /api/notifications/my-notifications
 
 ```text
 Client
-   │
-   ▼
+
+    │
+
 Create Order
-   │
-   ▼
-Order Created
-   │
-   ▼
+
+    │
+
 Initiate Payment
-   │
-   ▼
+
+    │
+
 Payment Pending
-   │
-   ├──────────────► Payment Success
-   │                    │
-   │                    ▼
-   │              Order Paid
-   │                    │
-   │                    ▼
-   │          Notification Created
-   │                    │
-   │                    ▼
-   │            Audit Record Saved
-   │
-   └──────────────► Payment Failed
-                        │
-                        ▼
-                  Order Failed
-                        │
-                        ▼
-                 Audit Record Saved
-```
 
----
-
-# 🔐 Security Flow
-
-```text
-Client
-
-   │
-   ▼
-
-Login
-
-   │
-   ▼
-
-JWT Token
-
-   │
-   ▼
-
-Authorization Header
-
-Bearer <JWT>
-
-   │
-   ▼
-
-JWT Authentication Filter
-
-   │
-   ▼
-
-Spring Security
-
-   │
-   ▼
-
-Controller
-
-   │
-   ▼
-
-Service
-
-   │
-   ▼
-
-Database
+    │
+    ├──────────────► Webhook Success
+    │                    │
+    │                    ▼
+    │              Payment SUCCESS
+    │                    │
+    │              Order PAID
+    │                    │
+    │            Notification Created
+    │                    │
+    │             Audit Created
+    │
+    ├──────────────► Webhook Failed
+    │                    │
+    │                    ▼
+    │             Payment FAILED
+    │                    │
+    │             Order FAILED
+    │                    │
+    │             Audit Created
+    │
+    └──────────────► Scheduler Timeout
+                         │
+                         ▼
+                 Payment EXPIRED
+                         │
+                 Order FAILED
+                         │
+                 Audit Created
 ```
 
 ---

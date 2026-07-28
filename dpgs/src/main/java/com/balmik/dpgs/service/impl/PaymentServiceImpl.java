@@ -137,7 +137,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentAlreadyProcessedException("Payment has already been processed");
         }
 
-        completePaymentFailure(payment, email);
+        completePaymentFailure(payment, email, AuditEvent.PAYMENT_FAILED, "Payment failed by user.");
 
         return mapToResponse(payment);
     }
@@ -199,7 +199,46 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
-        completePaymentFailure(payment, "PAYMENT_GATEWAY");
+        completePaymentFailure(payment, "PAYMENT_GATEWAY",  AuditEvent.PAYMENT_FAILED, "Gateway returned FAILED.");
+
+    }
+
+    @Override
+    @Transactional
+    public void expirePendingPayments() {
+
+        LocalDateTime expiryTime = LocalDateTime.now().minusMinutes(15);
+
+        List<Payment> expiredPayments = paymentRepository.findByStatusAndCreatedAtBefore(PaymentStatus.PENDING, expiryTime);
+
+        if(expiredPayments.isEmpty()){
+            log.info("No expired pending payments found.");
+            return;
+        }
+
+        log.info("Found {} expired pending payment(s).", expiredPayments.size());
+
+        for(Payment payment : expiredPayments){
+
+            completePaymentFailure(payment, "SCHEDULER", AuditEvent.PAYMENT_EXPIRED, "Payment expired after 15 minutes without gateway response.");
+
+            Notification notification = Notification.builder()
+                    .user(payment.getOrder().getUser())
+                    .type(NotificationType.EMAIL)
+                    .status(NotificationStatus.SENT)
+                    .subject("Payment Expired")
+                    .message("Payment " + payment.getPaymentId() + " has expired because no gateway response was received.")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            notificationRepository.save(notification);
+
+            auditService.saveAudit(payment, AuditEvent.PAYMENT_EXPIRED, "Payment expired after timeout", "SCHEDULER");
+
+            log.warn("Payment expired. PaymentId={}", payment.getPaymentId());
+
+        }
+
 
     }
 
@@ -267,7 +306,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
-    private void completePaymentFailure(Payment payment, String actor){
+    private void completePaymentFailure(Payment payment, String actor, AuditEvent auditEvent, String description){
 
         payment.setStatus(PaymentStatus.FAILED);
 
@@ -277,7 +316,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.save(payment);
         orderRepository.save(order);
 
-        auditService.saveAudit(payment, AuditEvent.PAYMENT_FAILED,
+        auditService.saveAudit(payment, auditEvent,
                 String.format(
                         "Payment %s failed for Order %s",
                         payment.getPaymentId(),
