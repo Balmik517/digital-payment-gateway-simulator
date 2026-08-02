@@ -92,4 +92,20 @@ public class GlobalExceptionHandler {
                 Map.of("success", false,
                         "message", ex.getMessage()));
     }
+
+    @ExceptionHandler(RefundNotFoundException.class)
+    public ResponseEntity<?> handleRefundNotFound(RefundNotFoundException ex){
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RefundAlreadyExistsException.class)
+    public ResponseEntity<?> handleRefundAlreadyExists(RefundAlreadyExistsException ex){
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                Map.of("success", false,
+                        "message", ex.getMessage()));
+    }
 }
