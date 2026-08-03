@@ -7,6 +7,7 @@ public enum AuditEvent {
     PAYMENT_FAILED,
     PAYMENT_EXPIRED,
     NOTIFICATION_SENT,
-    REFUND_CREATED
+    REFUND_CREATED,
+    EMAIL_SENT
 
 }
