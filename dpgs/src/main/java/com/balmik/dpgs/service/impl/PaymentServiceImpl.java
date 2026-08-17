@@ -13,6 +13,7 @@ import com.balmik.dpgs.repository.OrderRepository;
 import com.balmik.dpgs.repository.PaymentRepository;
 import com.balmik.dpgs.repository.UserRepository;
 import com.balmik.dpgs.service.AuditService;
+import com.balmik.dpgs.service.EmailService;
 import com.balmik.dpgs.service.IdempotencyService;
 import com.balmik.dpgs.service.PaymentService;
 import jakarta.transaction.Transactional;
@@ -36,6 +37,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final AuditService auditService;
 
     private final IdempotencyService idempotencyService;
+
+    private final EmailService emailService;
 
 
     @Override
@@ -293,8 +296,14 @@ public class PaymentServiceImpl implements PaymentService {
         orderRepository.save(order);
         notificationRepository.save(notification);
 
-        auditService.saveAudit(payment, AuditEvent.NOTIFICATION_SENT,
-                "Payment success notification generated", "SYSTEM");
+        emailService.sendEmail(order.getUser().getEmail(), notification.getSubject(), notification.getMessage());
+
+        auditService.saveAudit(payment, AuditEvent.NOTIFICATION_SENT, String.format(
+                        "Notification generated for payment %s",
+                        payment.getPaymentId()),
+                "SYSTEM");
+
+        auditService.saveAudit(payment, AuditEvent.EMAIL_SENT, "Mock email sent successfully", "SYSTEM");
 
         auditService.saveAudit(payment, AuditEvent.PAYMENT_SUCCESS,
                 String.format(
