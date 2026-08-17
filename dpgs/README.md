@@ -2,7 +2,7 @@
 
 A production-inspired backend application built using **Java 21**, **Spring Boot 3.5.x**, **Spring Security**, **JWT Authentication**, and **PostgreSQL** that simulates a real-world Digital Payment Gateway.
 
-The project follows enterprise backend development practices including secure authentication, authorization, order management, payment processing, notifications, audit logging, request logging, exception handling, and Git feature-based development.
+The project follows enterprise backend development practices including secure authentication, authorization, role-based access control, order management, payment processing, webhook simulation, scheduled jobs, notifications, audit logging, request logging, exception handling, and Git feature-based development.
 
 ---
 
@@ -17,8 +17,8 @@ The project follows enterprise backend development practices including secure au
 - Maven
 - Lombok
 - SLF4J + Logback
-- Git & GitHub
 - Spring Scheduler
+- Git & GitHub
 
 ---
 
@@ -33,6 +33,41 @@ The project follows enterprise backend development practices including secure au
 - JWT Authentication Filter
 - Stateless Authentication
 - Protected APIs
+
+---
+
+## 👥 Role Based Access Control (RBAC)
+
+### Roles
+
+- USER
+- ADMIN
+
+### Access Rules
+
+| Endpoint | USER | ADMIN |
+|-----------|--------|--------|
+| /api/auth/** | ✅ | ✅ |
+| /api/orders/** | ✅ | ✅ |
+| /api/payments/** | ✅ | ✅ |
+| /api/notifications/** | ✅ | ✅ |
+| /api/admin/** | ❌ | ✅ |
+
+### JWT Claims
+
+JWT tokens contain:
+
+- Email
+- Role
+
+Example:
+
+```json
+{
+  "sub": "admin@gmail.com",
+  "role": "ADMIN"
+}
+```
 
 ---
 
@@ -77,13 +112,34 @@ PAYMENT_PENDING
 
 ### Payment Features
 
-- Initiate Payment
 - Payment Idempotency
 - Payment Ownership Validation
 - Payment State Validation
-- Payment Expiration Scheduler
+- Payment Expiry Scheduler
 - Webhook Payment Processing
 - Audit Tracking
+
+---
+
+## 🔄 Webhook Simulation
+
+Simulates payment gateway callbacks similar to Razorpay, Stripe, or Cashfree.
+
+### APIs
+
+```http
+POST /api/webhooks/payment-success
+POST /api/webhooks/payment-failed
+```
+
+### Features
+
+- Processes asynchronous payment callbacks
+- Updates Payment Status
+- Updates Order Status
+- Generates Notifications
+- Creates Audit Records
+- Prevents Duplicate Processing
 
 ---
 
@@ -94,28 +150,11 @@ Implemented automatic payment expiration using Spring Scheduler.
 ### Current Job
 
 - Expires pending payments after configured timeout
-- Updates Order Status
-- Updates Payment Status
-- Creates Audit Entry
-
-## 🔄 Webhook Simulation
-
-Simulates payment gateway callbacks similar to Razorpay, Stripe or Cashfree.
-
-### APIs
-
-POST /api/webhooks/payment-success
-
-POST /api/webhooks/payment-failed
-
-### Features
-
-- Processes asynchronous payment callbacks
 - Updates Payment Status
 - Updates Order Status
-- Generates Notifications
 - Creates Audit Records
-- Prevents duplicate processing
+
+---
 
 ## 🔔 Notification Module
 
@@ -124,6 +163,29 @@ POST /api/webhooks/payment-failed
 - Notification Repository
 - Get Logged-in User Notifications
 - Automatic Notification Creation on Successful Payment
+
+---
+
+## 📧 Mock Email Service
+
+A mock email service is implemented to simulate real-world email delivery.
+
+### Features
+
+- Payment Success Email Simulation
+- Structured Email Logs
+- Notification Integration
+- Audit Tracking
+
+Example Log:
+
+```text
+========== EMAIL SENT ==========
+To      : user@gmail.com
+Subject : Payment Successful
+Body    : Your payment was completed successfully.
+================================
+```
 
 ---
 
@@ -139,6 +201,28 @@ Tracks every important business event.
 - PAYMENT_FAILED
 - PAYMENT_EXPIRED
 - NOTIFICATION_SENT
+- EMAIL_SENT
+
+---
+
+## 👨‍💼 Admin Module
+
+Administrative APIs protected using ROLE_ADMIN.
+
+### Implemented APIs
+
+#### Get All Payments
+
+```http
+GET /api/admin/payments
+```
+
+### Features
+
+- Admin-only access
+- View all payments
+- System-wide payment visibility
+- Payment monitoring
 
 ---
 
@@ -152,6 +236,7 @@ Application-wide logging using **SLF4J + Logback**.
 - Order Logs
 - Payment Logs
 - Notification Logs
+- Email Logs
 - Webhook Logs
 - Scheduler Logs
 - Request Logs
@@ -164,6 +249,7 @@ Application-wide logging using **SLF4J + Logback**.
 
 - Spring Security Filter Chain
 - JWT Authentication
+- Role-Based Access Control (RBAC)
 - Resource Ownership Validation
 - Stateless Authentication
 - Global Exception Handling
@@ -187,6 +273,7 @@ src/main/java/com/balmik/dpgs
 ├── filter
 ├── repository
 ├── security
+├── scheduler
 ├── service
 │   └── impl
 └── DpgsApplication
@@ -341,41 +428,98 @@ GET /api/payments/order/{orderId}
 GET /api/notifications/my-notifications
 ```
 
+---
+
+## Webhooks
+
+### Payment Success Callback
+
+```http
+POST /api/webhooks/payment-success
+```
+
+Request
+
+```json
+{
+  "paymentId": "PAY-1785046301509"
+}
+```
+
+---
+
+### Payment Failed Callback
+
+```http
+POST /api/webhooks/payment-failed
+```
+
+Request
+
+```json
+{
+  "paymentId": "PAY-1785046301509"
+}
+```
+
+---
+
+## Admin APIs
+
+### Get All Payments
+
+```http
+GET /api/admin/payments
+```
+
+Headers
+
+```http
+Authorization: Bearer <ADMIN_JWT_TOKEN>
+```
+
+Role Required
+
+```text
+ADMIN
+```
 
 ---
 
 # 🏗 Current Architecture
 
 ```text
-                      Client
-                        │
-                        ▼
-                 JWT Authentication
-                        │
-                        ▼
-                 Spring Security
-                        │
-                        ▼
-                  REST Controllers
-                        │
-        ┌───────────────┼────────────────┐
-        │               │                │
-        ▼               ▼                ▼
- Order Service   Payment Service   Notification Service
-                        │
-            ┌───────────┴───────────┐
-            ▼                       ▼
-      Webhook Service        Scheduler
-            │                       │
-            └───────────┬───────────┘
-                        ▼
-                  Audit Service
-                        │
-                        ▼
-                  Repository Layer
-                        │
-                        ▼
-                    PostgreSQL
+                         Client
+                            │
+                            ▼
+                    JWT Authentication
+                            │
+                            ▼
+                     Spring Security
+                            │
+                            ▼
+                      REST Controllers
+                            │
+      ┌─────────────────────┼─────────────────────┐
+      │                     │                     │
+      ▼                     ▼                     ▼
+ Auth Service       Order Service       Payment Service
+                                                  │
+                          ┌───────────────────────┼──────────────────────┐
+                          ▼                       ▼                      ▼
+                  Webhook Service      Notification Service      Admin Service
+                          │
+                          ▼
+                    Email Service
+                          │
+                          ▼
+                     Audit Service
+                          │
+                          ▼
+                    Repository Layer
+                          │
+                          ▼
+                      PostgreSQL
 ```
 
 ---
@@ -384,48 +528,54 @@ GET /api/notifications/my-notifications
 
 ```text
 Client
-
-    │
-
+   │
+   ▼
 Create Order
-
-    │
-
+   │
+   ▼
 Initiate Payment
-
-    │
-
+   │
+   ▼
 Payment Pending
-
-    │
-    ├──────────────► Webhook Success
-    │                    │
-    │                    ▼
-    │              Payment SUCCESS
-    │                    │
-    │              Order PAID
-    │                    │
-    │            Notification Created
-    │                    │
-    │             Audit Created
-    │
-    ├──────────────► Webhook Failed
-    │                    │
-    │                    ▼
-    │             Payment FAILED
-    │                    │
-    │             Order FAILED
-    │                    │
-    │             Audit Created
-    │
-    └──────────────► Scheduler Timeout
+   │
+   ├──────────────► Webhook Success
+   │                    │
+   │                    ▼
+   │              Payment SUCCESS
+   │                    │
+   │                    ▼
+   │               Order PAID
+   │                    │
+   │                    ▼
+   │          Notification Created
+   │                    │
+   │                    ▼
+   │             Email Generated
+   │                    │
+   │                    ▼
+   │              Audit Created
+   │
+   ├──────────────► Webhook Failed
+   │                    │
+   │                    ▼
+   │             Payment FAILED
+   │                    │
+   │                    ▼
+   │              Order FAILED
+   │                    │
+   │                    ▼
+   │              Audit Created
+   │
+   └──────────────► Scheduler Timeout
                          │
                          ▼
                  Payment EXPIRED
                          │
-                 Order FAILED
+                         ▼
+                  Order FAILED
                          │
-                 Audit Created
+                         ▼
+                   Audit Created
 ```
 
 ---
@@ -444,19 +594,19 @@ spring.datasource.password=********
 
 # ▶ Running the Project
 
-Clone the repository
+Clone repository
 
 ```bash
 git clone https://github.com/Balmik517/digital-payment-gateway-simulator.git
 ```
 
-Move to the project directory
+Move to project directory
 
 ```bash
 cd digital-payment-gateway-simulator
 ```
 
-Run the application
+Run application
 
 ```bash
 mvn spring-boot:run
@@ -474,10 +624,15 @@ http://localhost:8080
 
 - ✅ Authentication
 - ✅ JWT Security
+- ✅ Role Based Access Control (RBAC)
 - ✅ Order Management
 - ✅ Payment Management
+- ✅ Payment Webhooks
+- ✅ Payment Expiry Scheduler
 - ✅ Notification Service
+- ✅ Mock Email Service
 - ✅ Audit Service
+- ✅ Admin Module
 - ✅ Request Logging
 - ✅ Exception Handling
 - ✅ Ownership Validation
@@ -499,10 +654,8 @@ http://localhost:8080
 
 ## Phase 2
 
-- Email Service (Mock)
 - Payment Retry
 - Refund APIs
-- Admin APIs
 - Validation Improvements
 
 ---
@@ -550,6 +703,7 @@ This project demonstrates:
 - Spring Boot
 - Spring Security
 - JWT Authentication
+- Role-Based Access Control
 - REST API Design
 - Layered Architecture
 - JPA & Hibernate
@@ -558,6 +712,8 @@ This project demonstrates:
 - Audit Logging
 - Request Logging
 - Secure API Design
+- Webhook Processing
+- Scheduler Jobs
 - Git Feature Branch Workflow
 - Production-ready Backend Development
 

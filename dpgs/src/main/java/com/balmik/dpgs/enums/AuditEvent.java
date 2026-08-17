@@ -1,13 +1,17 @@
 package com.balmik.dpgs.enums;
 
 public enum AuditEvent {
+
     PAYMENT_CREATED,
     PAYMENT_PENDING,
     PAYMENT_SUCCESS,
     PAYMENT_FAILED,
     PAYMENT_EXPIRED,
-    NOTIFICATION_SENT,
-    REFUND_CREATED,
-    EMAIL_SENT
 
+    NOTIFICATION_SENT,
+    EMAIL_SENT,
+
+    REFUND_CREATED,
+    REFUND_SUCCESS,
+    REFUND_FAILED
 }

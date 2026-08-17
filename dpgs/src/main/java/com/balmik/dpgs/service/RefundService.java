@@ -12,4 +12,8 @@ public interface RefundService {
     RefundResponse getRefund(String refundId, String email);
 
     List<RefundResponse> getMyRefunds(String email);
+
+    RefundResponse approveRefund(String refundId);
+
+    RefundResponse rejectRefund(String refundId);
 }

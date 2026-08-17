@@ -114,6 +114,60 @@ public class RefundServiceImpl implements RefundService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public RefundResponse approveRefund(String refundId) {
+
+        Refund refund = refundRepository.findByRefundId(refundId).orElseThrow(() ->
+              new RefundNotFoundException("Refund not found"));
+
+        if(refund.getStatus() != RefundStatus.INITIATED){
+            throw new IllegalStateException("Refund already processed");
+        }
+
+        refund.setStatus(RefundStatus.SUCCESS);
+        refundRepository.save(refund);
+
+        createRefundProcessedNotification(refund, "Refund Approved",
+                "Refund " + refund.getRefundId() + " has been approved.");
+
+        auditService.saveAudit(refund.getPayment(), AuditEvent.REFUND_SUCCESS, "Refund approved. RefundId=" + refundId,
+                "ADMIN");
+
+        auditService.saveAudit(refund.getPayment(), AuditEvent.NOTIFICATION_SENT, "Refund notification generated",
+                "SYSTEM");
+
+        log.info("Refund approved. RefundId={}", refundId);
+
+        return mapToResponse(refund);
+    }
+
+    @Override
+    @Transactional
+    public RefundResponse rejectRefund(String refundId) {
+
+        Refund refund = refundRepository.findByRefundId(refundId)
+                .orElseThrow(() -> new RefundNotFoundException("Refund not found"));
+
+        if(refund.getStatus() != RefundStatus.INITIATED){
+            throw new IllegalStateException("Refund already processed");
+        }
+
+        refund.setStatus(RefundStatus.FAILED);
+
+        refundRepository.save(refund);
+
+        createRefundProcessedNotification(refund, "Refund Rejected",
+                "Refund " + refund.getRefundId() + " has been rejected.");
+
+        auditService.saveAudit(refund.getPayment(), AuditEvent.REFUND_FAILED, "Refund rejected. RefundId=" + refundId,
+                "ADMIN");
+
+        log.info("Refund rejected. RefundId={}", refundId);
+
+        return mapToResponse(refund);
+    }
+
 
     private User getCurrentUser(String email) {
         return userRepository.findByEmail(email)
@@ -149,5 +203,20 @@ public class RefundServiceImpl implements RefundService {
         notificationRepository.save(notification);
 
         log.info("Refund notification created. RefundId={}", refund.getRefundId());
+    }
+
+
+    private void createRefundProcessedNotification(Refund refund, String subject, String message) {
+
+        Notification notification = Notification.builder()
+                .user(refund.getPayment().getOrder().getUser())
+                .type(NotificationType.EMAIL)
+                .status(NotificationStatus.SENT)
+                .subject(subject)
+                .message(message)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        notificationRepository.save(notification);
     }
 }
