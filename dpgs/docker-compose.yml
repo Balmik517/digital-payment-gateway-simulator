@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dpgs-postgres
+    environment:
+      POSTGRES_DB: dpgs
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  dpgs:
+    build: .
+    container_name: dpgs-app
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
