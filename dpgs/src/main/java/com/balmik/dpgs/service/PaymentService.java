@@ -22,4 +22,6 @@ public interface PaymentService {
     void processWebhookFailed(String paymentId);
 
     void expirePendingPayments();
+
+    PaymentResponse retryPayment(String paymentId, String email);
 }

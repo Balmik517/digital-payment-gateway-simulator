@@ -46,4 +46,12 @@ public class PaymentController {
 
         return paymentService.getPaymentsByOrder(orderId, authentication.getName());
     }
+
+
+    @PostMapping("/{paymentId}/retry")
+    public PaymentResponse retryPayment(@PathVariable String paymentId, Authentication authentication){
+
+        return paymentService.retryPayment(paymentId, authentication.getName());
+
+    }
 }

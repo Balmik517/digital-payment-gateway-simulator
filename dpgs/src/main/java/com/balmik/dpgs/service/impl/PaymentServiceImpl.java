@@ -245,6 +245,55 @@ public class PaymentServiceImpl implements PaymentService {
 
     }
 
+    @Override
+    @Transactional
+    public PaymentResponse retryPayment(String paymentId, String email) {
+
+        log.info("Retry requested for the paymentId={}", paymentId);
+
+        User user = getCurrentUser(email);
+
+        Payment oldPayment = paymentRepository.findByPaymentId(paymentId).orElseThrow(
+                () -> new PaymentNotFoundException("Payment not found"));
+
+        if(!oldPayment.getOrder().getUser().getId().equals(user.getId())){
+            throw new ResourceAccessDeniedException("You cannot retry another user's payment");
+        }
+
+        if(oldPayment.getStatus() != PaymentStatus.FAILED){
+            throw new PaymentAlreadyProcessedException("Only failed payment can be retried.");
+        }
+
+        Order order = oldPayment.getOrder();
+
+        paymentRepository.findByOrderAndStatus(order, PaymentStatus.PENDING)
+                .ifPresent(payment -> {
+                    throw new PaymentAlreadyExistsException("A payment is already in progress");
+                });
+
+        Payment retryPayment = Payment.builder().paymentId("PAY-" + System.currentTimeMillis())
+                .order(order).amount(oldPayment.getAmount()).paymentMethod(oldPayment.getPaymentMethod())
+                .status(PaymentStatus.PENDING)
+                .transactionReference("TNX-"+ System.currentTimeMillis())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        order.setStatus(OrderStatus.PAYMENT_PENDING);
+
+        orderRepository.save(order);
+        paymentRepository.save(retryPayment);
+
+        auditService.saveAudit(retryPayment, AuditEvent.PAYMENT_RETRY_INITIATED, String.format("Retry created from failed payment %s",
+                        oldPayment.getPaymentId()), email);
+
+        auditService.saveAudit(retryPayment, AuditEvent.PAYMENT_PENDING, "Retry payment waiting for gateway response",
+                "SYSTEM");
+
+        log.info("Retry payment created. OldPayment={}, NewPayment={}", oldPayment.getPaymentId(), retryPayment.getPaymentId());
+
+        return mapToResponse(retryPayment);
+    }
+
     private User getCurrentUser(String email){
         return userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found"));
